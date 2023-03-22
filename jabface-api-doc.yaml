@@ -1,0 +1,221 @@
+openapi: 3.0.3
+info:
+  title: JABface API
+  description: This is the JABface REST API for the various use cases.
+  termsOfService: https://monkeyfirst.ch/rechtliches/
+  contact:
+    email: mm@monkeyfirst.ch
+  license:
+    name: JABface Webservice License
+    url: https://monkeyfirst.ch/rechtliches/
+  version: 1.0.0
+externalDocs:
+  description: Find out more about JABface
+  url: https://monkeyfirst.ch/jabface
+servers:
+  - url: https://monkeyfirst.ch
+tags:
+  - name: jabfaceticket
+    description: JABface tickets
+    externalDocs:
+      description: Find out more
+      url: https://monkeyfirst.ch/jabface/personliche-tickets/
+paths:
+  /api/v1/jabfaceticket:
+    post:
+      tags:
+        - jabfaceticket
+      summary: Creates a JABface ticket for the given data.
+      description: Creates a JABface ticket for the given data. Performs integrity checks for each request based on headers and body.
+      operationId: createJABfaceTicket
+      parameters:
+      - name: X-Signature
+        in: header
+        description: "Base64 encoded hash of the canonicalized body, generated with\
+          \ the `SHA256withRSA` algorithm signed with the private key of the certificate\
+          \ issued by \"Monkeyfirst Regular CA 01\". See [documentation](https://github.com/monkeyfirst-ch/JABface-API-Doc)\
+          \ on Github."
+        required: true
+        schema:
+          type: string
+          format: Base64
+      requestBody:
+        description: Create a new JABface ticket
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JABfaceTicketCreateDto'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JABfaceTicketCreateResponseDto'          
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RestError'
+              examples:
+                NO_TICKET_ID:
+                  description: "NO_TICKET_ID"
+                  value: "{\"errorCode\": 453, \"errorMessage\": No ticketId was\
+                    \ specified!}"
+                INVALID_TICKET_ID:
+                  description: INVALID_TICKET_ID
+                  value: "{\"errorCode\": 455, \"errorMessage\": Invalid ticketId!}"
+                NO_IMAGE:
+                  description: NO_IMAGE
+                  value: "{\"errorCode\": 457, \"errorMessage\": No image was\
+                    \ specified!}"
+                INVALID_IMAGE:
+                  description: INVALID_IMAGE
+                  value: "{\"errorCode\": 459, \"errorMessage\": Invalid image!}"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RestError'
+              examples:
+                INVALID_SIGNATURE:
+                  description: INVALID_SIGNATURE
+                  value: "{\"errorCode\": 490, \"errorMessage\": Integrity check failed,\
+                    \ the body hash does not match the hash in the header}"
+                SIGNATURE_PARSE_ERROR:
+                  description: SIGNATURE_PARSE_ERROR
+                  value: "{\"errorCode\": 491, \"errorMessage\": Signature could not\
+                    \ be parsed}"
+  /api/v1/jabfaceticket/revoke:
+    post:
+      tags:
+        - jabfaceticket
+      summary: Revokes a JABface ticket.
+      description: Revokes a JABface ticket. Performs integrity checks for each request based on headers and body.
+      operationId: revokeJABfaceTicket
+      parameters:
+      - name: X-Signature
+        in: header
+        description: "Base64 encoded hash of the canonicalized body, generated with\
+          \ the `SHA256withRSA` algorithm signed with the private key of the certificate\
+          \ issued by \"Monkeyfirst Regular CA 01\". See [documentation](https://github.com/monkeyfirst-ch/JABface-API-Doc)\
+          \ on Github."
+        required: true
+        schema:
+          type: string
+          format: byte
+      requestBody:
+        description: Revokes a JABface ticket
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JABfaceTicketRevokeDto'
+        required: true
+      responses:
+        "201":
+          description: CREATED      
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RestError'
+              examples:
+                NO_TICKET_ID:
+                  description: "NO_JABFACE_CODE_DATA"
+                  value: "{\"errorCode\": 453, \"errorMessage\": No JABfaceCodeData was\
+                    \ specified!}"
+                INVALID_TICKET_ID:
+                  description: INVALID_JABFACE_CODE_DATA
+                  value: "{\"errorCode\": 455, \"errorMessage\": Invalid JABfaceCodeData!}"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RestError'
+              examples:
+                INVALID_SIGNATURE:
+                  description: INVALID_SIGNATURE
+                  value: "{\"errorCode\": 490, \"errorMessage\": Integrity check failed,\
+                    \ the body hash does not match the hash in the header}"
+                SIGNATURE_PARSE_ERROR:
+                  description: SIGNATURE_PARSE_ERROR
+                  value: "{\"errorCode\": 491, \"errorMessage\": Signature could not\
+                    \ be parsed}"
+        "409":
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RestError'
+              examples:
+                DUPLICATE_JABFACE_CODE_DATA:
+                  description: DUPLICATE_JABFACE_CODE_DATA
+                  value: "{\"errorCode\": 480, \"errorMessage\": Duplicate JABfaceCodeData.}"
+components:
+  schemas:
+    JABfaceTicketCreateDto:
+      required:
+        - ticketId
+        - image
+      type: object
+      properties:
+        ticketId:
+          maxLength: 32
+          type: string
+          example: TT98374628274765
+        image:
+          type: string
+          format: byte
+          description: "Image format TBD."          
+    JABfaceTicketCreateResponseDto:
+      type: object
+      properties:
+        jabFaceCode:
+          type: string
+          format: byte
+          description: "QR code as PNG image encoded with Base64. QR decode returns jabFaceCodeData."
+    JABfaceTicketRevokeDto:
+      required:
+        - jabFaceCodeData
+      type: object
+      properties:
+        jabFaceCodeData:
+          type: string
+          format: Base45
+    jabFaceCodeData:
+      type: string
+      format: Base45
+      description: "Content of QR code in format \"JF1:Base45(...)\". Base45 encoded, ZLIB compressed \"CBOR Web Token\" (CWT) with jabFaceData payload encoded as a CBOR with a COSE digital signature."
+    jabFaceData:
+      required:
+        - ticketId
+        - jabFaceId
+        - jabFaceImage
+      type: object
+      properties:
+        ticketId:
+          maxLength: 32
+          type: string
+          example: TT98374628274765
+        jabFaceId:
+          type: string
+          format: uuid
+        jabFaceImage:
+          type: array
+          items:
+            type: string
+            format: byte
+      description: "The jabFaceData payload is structured and encoded as a CBOR with a COSE digital signature."
+    RestError:
+      type: object
+      properties:
+        errorCode:
+          type: integer
+          format: int32
+        errorMessage:
+          type: string
